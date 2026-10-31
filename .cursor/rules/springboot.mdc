@@ -1,0 +1,95 @@
+---
+description: Spring Boot + Java best practices for the Banco TdeA transfer service
+alwaysApply: true
+---
+
+# Spring Boot / Java — banktransfer
+
+Apply these conventions on every change to this project.
+
+## Stack
+
+- Spring Boot 4.0.x, Maven, Java 21+ (compatible with Java 25), base package `com.tdea.banktransfer`
+- Data: Spring Data JPA + PostgreSQL (H2 only for tests)
+- API docs: springdoc-openapi (Swagger UI at `/swagger-ui.html`)
+- QR codes: ZXing (`core` + `javase`)
+- Frontend: React + Vite + Axios in `frontend/`, served on `http://localhost:3000`
+
+## Naming (always English)
+
+- Classes, interfaces, methods, fields, parameters, packages and constants: **English only**
+- Controllers: `*Controller` · Services: `*Service` · Repositories: `*Repository` · Exceptions: `*Exception`
+- User-facing messages (exception messages, validation messages, UI text) are written in Spanish
+- URL paths may be in Spanish (`/api/cuentas`, `/api/transferencias`, `/api/transacciones`)
+
+## Documentation
+
+- **Every public method must have an up-to-date Javadoc** (`@param`, `@return`, `@throws` when applicable)
+- Update the Javadoc in the same change that modifies the method's behavior
+
+## DTOs
+
+- **DTOs are Java `record`s** in the `dto` package
+- Validation with Jakarta Bean Validation on record components (`@NotBlank`, `@DecimalMin`, `@Digits`...), always with a Spanish `message`
+- Entities never leave the service layer: map with a static factory `from(Entity)` on the response record
+- Request records: `*Request` · Response records: `*Response`
+
+## Java best practices
+
+- Constructor injection only (no field `@Autowired`); fields `private final`
+- Prefer records, `sealed` hierarchies (the business exceptions are `sealed`), pattern matching, text blocks, `var` only when the type is obvious
+- Use `Optional` as a return type from repositories, never as a field or parameter
+- Use `BigDecimal` for money (precision 19, scale 2); never `double`/`float`
+- `List.of`, `Stream.toList()` and other immutable collections
+- No business logic in controllers; controllers only validate (`@Valid`), delegate and choose the HTTP status
+
+## Transactions and money
+
+- Every money movement runs inside a single database transaction
+- Lock both accounts with `PESSIMISTIC_WRITE`, always in the same order (by account number) to avoid deadlocks
+- Rejected transfers are rolled back and then recorded in a separate transaction with status `REJECTED`
+- Entities with balance carry `@Version` for optimistic locking as a second safeguard
+
+## Errors
+
+- Business errors extend `BusinessException` (sealed) and carry their `HttpStatus`
+- `GlobalExceptionHandler` (`@RestControllerAdvice`) returns RFC 9457 `ProblemDetail`
+- Status codes: 201 created · 400 invalid data · 404 account not found · 409 duplicate · 422 insufficient funds
+
+## Configuration
+
+- `application.properties` with `${ENV_VAR:default}` placeholders for DB URL, user, password and frontend origin
+- `spring.jpa.open-in-view=false`
+- CORS configured in `config/CorsConfig` for the frontend origin only
+
+## Testing
+
+- `@SpringBootTest` integration tests against H2 (`src/test/resources/application.properties`)
+- Test every business rule: success, insufficient funds, same account, missing account
+
+## Current project structure
+
+```
+BancoTransferencias-TdeA/
+├── .cursor/rules/springboot.mdc
+├── backend/
+│   ├── pom.xml
+│   └── src/
+│       ├── main/java/com/tdea/banktransfer/
+│       │   ├── BankTransferApplication.java
+│       │   ├── config/        CorsConfig, DataSeeder
+│       │   ├── controller/    AccountController, TransferController
+│       │   ├── dto/           AccountRequest, AccountResponse, TransferRequest,
+│       │   │                  TransferResponse, TransactionResponse
+│       │   ├── entity/        Account, Transaction, TransactionStatus
+│       │   ├── exception/     BusinessException (sealed) + subtypes, GlobalExceptionHandler
+│       │   ├── repository/    AccountRepository, TransactionRepository
+│       │   └── service/       AccountService, TransferService, QrCodeService
+│       ├── main/resources/application.properties
+│       └── test/              TransferServiceTest + H2 properties
+├── frontend/
+│   ├── src/services/bankService.js
+│   ├── src/components/    AccountsPanel, TransferForm, Receipt, TransactionHistory, QrModal, Toast
+│   └── src/App.jsx, styles.css
+└── docs/                  Informe, prompts, capturas
+```

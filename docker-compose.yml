@@ -1,0 +1,18 @@
+# Levanta PostgreSQL con la base de datos banktdea ya creada.
+# Uso: docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    container_name: banktdea-db
+    environment:
+      POSTGRES_DB: banktdea
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    volumes:
+      - banktdea-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  banktdea-data:

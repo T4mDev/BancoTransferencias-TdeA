@@ -1,0 +1,11 @@
+backend/target/
+frontend/node_modules/
+frontend/dist/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Archivos temporales de Word y versiones .docx del informe
+~$*
+docs/*.docx
